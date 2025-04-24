@@ -1,0 +1,36 @@
+.popup {
+  width: 300px; /* You can adjust this as per your design */
+  padding: 20px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column; /* Arranges children in a column */
+  gap: 20px; /* Space between headline and checkbox list */
+}
+
+/* Headline styles */
+.popup-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+  margin: 0;
+}
+
+/* Flex container for the checkbox list */
+.checkbox-container {
+  display: flex;
+  flex-direction: column; /* Stack checkboxes vertically */
+  gap: 10px; /* Space between each checkbox item */
+}
+
+/* Style for each checkbox item */
+.checkbox-item {
+  display: flex;
+  align-items: center; /* Align checkbox and text horizontally */
+  gap: 8px; /* Space between checkbox and label text */
+}
+
+.checkbox-item input {
+  margin: 0; /* Remove default margin */
+}

@@ -1,6 +1,11 @@
 import type { PlasmoCSConfig } from "plasmo"
 
-import { filterLactoseFreeProducts } from "~utils/api"
+import "../styles/carrefour.css"
+
+import {
+  filterGlutenFreeProducts,
+  filterLactoseFreeProducts
+} from "~utils/productFilters"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://www.carrefour.es/*"],
@@ -8,8 +13,11 @@ export const config: PlasmoCSConfig = {
 }
 
 let allLinks = []
-console.log("Carrefour content script loaded")
+console.log("Carrefour content script copy loaded")
 
+const searchLinkSelector =
+  "ul.x-base-grid li.x-base-grid__item div:first-of-type a:first-of-type"
+const plpLinkSelector = "div.product-card__media a"
 // Función de debouncing que también retorna una promesa
 function debounce<T extends (...args: any[]) => void>(
   func: T,
@@ -36,16 +44,16 @@ function debounce<T extends (...args: any[]) => void>(
 }
 
 // Función para extraer los enlaces de los productos
-const extractProductLinks = () =>
-  Array.from(
-    document.querySelectorAll<HTMLAnchorElement>(
-      "section.ebx-grid .ebx-result__container-click > a.ebx-result__figure-link"
-    )
+const extractProductLinks = (linkSelector) => {
+  const arrayProducts = Array.from(
+    document.querySelectorAll<HTMLAnchorElement>(linkSelector)
   )
     .filter((a) => a.href.includes("/supermercado/"))
     .map((a) => a.href)
 
-let previousProductLinks: string[] = []
+  console.log("Cantidad " + arrayProducts.length)
+  return arrayProducts
+}
 const processedLinks: Map<string, string | null> = new Map() // Conjunto para almacenar enlaces ya procesados
 
 // Función para hacer scraping de la página del producto y obtener el EAN
@@ -75,7 +83,7 @@ const scrapeEAN = async (url: string): Promise<string | null> => {
 }
 
 // Función para procesar enlaces con Promise.all y asegurar secuencialidad
-const processProductLinks = async (links: string[]) => {
+const processProductLinks = async (links: string[], linkSelector: string) => {
   const unprocessedLinks = links.filter((link) => !processedLinks.has(link))
 
   if (unprocessedLinks.length > 0) {
@@ -85,68 +93,131 @@ const processProductLinks = async (links: string[]) => {
       unprocessedLinks.map(async (link) => {
         const ean = await scrapeEAN(link)
         processedLinks.set(link, ean) // Guardamos el EAN obtenido
-        markProductAsProcessed(link) // Marca el producto en el DOM
+        markProductAsProcessed(link, linkSelector) // Marca el producto en el DOM
         return { link, ean }
       })
     )
 
-    const test = await filterLactoseFreeProducts(results)
+    const filteredTest = await filterLactoseFreeProducts(results)
     console.log(results)
     console.log("Filtrados")
-    console.log(test)
-    console.log("Resultados del procesamiento:", results)
+    console.log("Resultados del procesamiento:", filteredTest)
+    filteredTest.forEach((product) =>
+      markProductAsFiltered(product.link, product.condition, linkSelector)
+    )
   }
 
   console.log(processedLinks)
 }
 
 // Función para aplicar estilo a los productos procesados
-const markProductAsProcessed = (link: string) => {
+const markProductAsProcessed = (link: string, linkSelector: string) => {
   const productElement = Array.from(
-    document.querySelectorAll<HTMLAnchorElement>(
-      "section.ebx-grid .ebx-result__container-click > a.ebx-result__figure-link"
-    )
+    document.querySelectorAll<HTMLAnchorElement>(linkSelector)
   ).find((a) => a.href === link)
 
   if (productElement) {
-    const container = productElement.closest("article") as HTMLElement
+    const container = productElement.closest("li") as HTMLElement
     if (container) {
-      container.style.border = "2px solid green"
-      container.style.backgroundColor = "#d0f0c0"
+      container.style.border = "2px solid orange"
+      container.style.backgroundColor = "#f0dec0"
       container.style.opacity = "0.7"
     }
     productElement.setAttribute("data-processed", "true") // Marcamos como procesado
   }
 }
 
+const markProductAsFiltered = (
+  link: string,
+  condition: boolean,
+  linkSelector: string
+) => {
+  const productElement = Array.from(
+    document.querySelectorAll<HTMLAnchorElement>(linkSelector)
+  ).find((a) => a.href === link)
+
+  if (productElement) {
+    const container = productElement.closest("li") as HTMLElement
+    if (container) {
+      if (condition) {
+        container.style.border = "2px solid green"
+        container.style.backgroundColor = "#c0f0d0"
+        container.style.opacity = "0.7"
+      } else {
+        container.style.border = "2px solid red"
+        container.style.backgroundColor = "#f0c0c0"
+        container.style.opacity = "0.7"
+      }
+    }
+    productElement.setAttribute("data-processed", "true") // Marcamos como procesado
+  }
+}
+
 // Función debounced para extraer y procesar productos
-const extractAndProcessProductsDebounced = debounce(async () => {
-  const currentProductLinks = extractProductLinks()
-  await processProductLinks(currentProductLinks)
+const extractAndProcessProductsDebounced = debounce(async (linkSelector) => {
+  const currentProductLinks = extractProductLinks(linkSelector)
+  console.log(currentProductLinks)
+  await processProductLinks(currentProductLinks, linkSelector)
 }, 500)
 
+const domObserver = new MutationObserver(() => {
+  const searchProductsContainer = document.querySelector("ul.x-base-grid")
+  const plpProductsContainer = document.querySelector(".plp")
+
+  if (searchProductsContainer) {
+    extractAndProcessProductsDebounced(searchLinkSelector)
+    searchObserver.observe(searchProductsContainer, { childList: true })
+  }
+
+  if (plpProductsContainer) {
+    extractAndProcessProductsDebounced(plpLinkSelector)
+    plpObserver.observe(plpProductsContainer, { childList: true })
+  }
+
+  // console.log(productContainer)
+  // if (productContainer) {
+  //   if (productContainer.classList.contains("x-base-grid")) {
+  //     domObserver.disconnect() // Detener el observer en el body
+  //     extractAndProcessProductsDebounced(searchLinkSelector)
+
+  //     searchObserver.observe(productContainer, { childList: true })
+  //     plpObserver.observe()
+  //   } else {
+  //     searchObserver.disconnect()
+
+  //     domObserver.observe(body, { childList: true, subtree: true })
+  //   }
+  // }
+})
+
 // Observer para monitorizar cambios en el DOM
-const observer = new MutationObserver((mutationsList) => {
-  const productContainer = document.querySelector("section.ebx-grid")
+const searchObserver = new MutationObserver((mutationsList) => {
+  const productContainer = document.querySelector("ul.x-base-grid")
+
+  console.log(productContainer)
 
   if (productContainer) {
-    observer.observe(productContainer, { childList: true, subtree: true })
+    if (productContainer.classList.contains("x-base-grid")) {
+      extractAndProcessProductsDebounced(searchLinkSelector)
+    } else {
+      searchObserver.disconnect()
 
-    // Llamamos a la función debounced para extraer y procesar los enlaces
-    extractAndProcessProductsDebounced()
+      domObserver.observe(body, { childList: true, subtree: true })
+    }
+  }
+})
+
+const plpObserver = new MutationObserver((mutationList) => {
+  const productContainer = document.querySelector(".plp")
+
+  if (productContainer) {
+    plpObserver.disconnect() // Detener el observer en el body
+    extractAndProcessProductsDebounced(plpLinkSelector)
   }
 })
 
 // Observamos el "body" para detectar la creación de "section.ebx-grid"
 const body = document.querySelector("body")
 if (body) {
-  const domObserver = new MutationObserver(() => {
-    const productContainer = document.querySelector("section.ebx-grid")
-    if (productContainer) {
-      domObserver.disconnect() // Detener el observer en el body
-      observer.observe(productContainer, { childList: true, subtree: true })
-    }
-  })
-
   domObserver.observe(body, { childList: true, subtree: true })
 }

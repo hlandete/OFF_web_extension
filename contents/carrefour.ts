@@ -1,9 +1,9 @@
 import type { PlasmoCSConfig } from "plasmo"
 
-import { filterLactoseFreeProducts } from "../utils/api"
+import { filterGlutenFreeProducts } from "../utils/filters"
 
 export const config: PlasmoCSConfig = {
-  matches: ["https://www.carrefour.es/*"],
+  matches: ["https://www.carrefour.null/*"],
   all_frames: true
 }
 console.log("Carrefour content script loaded")
@@ -16,6 +16,7 @@ const extractProductEans = async () => {
     )
   ).map((a) => a.href)
 
+  console.log(productLinks)
   // Obtener los EANs haciendo scraping desde los enlaces
   const eanList = await Promise.all(
     productLinks.map(async (link) => {
