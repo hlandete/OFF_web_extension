@@ -2,18 +2,14 @@ import type { PlasmoCSConfig } from "plasmo"
 
 import "../styles/carrefour.css"
 
-import {
-  filterGlutenFreeProducts,
-  filterLactoseFreeProducts
-} from "~utils/productFilters"
+import { filterProducts } from "~utils/productFilters"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://www.carrefour.es/*"],
   all_frames: true
 }
 
-let allLinks = []
-console.log("Carrefour content script copy loaded")
+// console.log("Carrefour content script copy loaded")
 
 const searchLinkSelector =
   "ul.x-base-grid li.x-base-grid__item div:first-of-type a:first-of-type"
@@ -51,7 +47,7 @@ const extractProductLinks = (linkSelector) => {
     .filter((a) => a.href.includes("/supermercado/"))
     .map((a) => a.href)
 
-  console.log("Cantidad " + arrayProducts.length)
+  // console.log("Cantidad " + arrayProducts.length)
   return arrayProducts
 }
 const processedLinks: Map<string, string | null> = new Map() // Conjunto para almacenar enlaces ya procesados
@@ -71,7 +67,7 @@ const scrapeEAN = async (url: string): Promise<string | null> => {
     if (scriptTag) {
       const jsonData = JSON.parse(scriptTag.innerText)
       const ean = jsonData.gtin13 || null
-      console.log(url, "EAN del producto:", ean)
+      // console.log(url, "EAN del producto:", ean)
       return ean
     }
     console.warn(url, "EAN no encontrado")
@@ -87,7 +83,7 @@ const processProductLinks = async (links: string[], linkSelector: string) => {
   const unprocessedLinks = links.filter((link) => !processedLinks.has(link))
 
   if (unprocessedLinks.length > 0) {
-    console.log("Procesando nuevos enlaces:", unprocessedLinks)
+    // console.log("Procesando nuevos enlaces:", unprocessedLinks)
 
     const results = await Promise.all(
       unprocessedLinks.map(async (link) => {
@@ -98,8 +94,8 @@ const processProductLinks = async (links: string[], linkSelector: string) => {
       })
     )
 
-    const filteredTest = await filterLactoseFreeProducts(results)
-    console.log(results)
+    const filteredTest = await filterProducts(results)
+    // console.log(results)
     console.log("Filtrados")
     console.log("Resultados del procesamiento:", filteredTest)
     filteredTest.forEach((product) =>
@@ -107,7 +103,7 @@ const processProductLinks = async (links: string[], linkSelector: string) => {
     )
   }
 
-  console.log(processedLinks)
+  // console.log(processedLinks)
 }
 
 // Función para aplicar estilo a los productos procesados
@@ -156,7 +152,7 @@ const markProductAsFiltered = (
 // Función debounced para extraer y procesar productos
 const extractAndProcessProductsDebounced = debounce(async (linkSelector) => {
   const currentProductLinks = extractProductLinks(linkSelector)
-  console.log(currentProductLinks)
+  // console.log(currentProductLinks)
   await processProductLinks(currentProductLinks, linkSelector)
 }, 500)
 
@@ -174,7 +170,7 @@ const domObserver = new MutationObserver(() => {
     plpObserver.observe(plpProductsContainer, { childList: true })
   }
 
-  // console.log(productContainer)
+  // // console.log(productContainer)
   // if (productContainer) {
   //   if (productContainer.classList.contains("x-base-grid")) {
   //     domObserver.disconnect() // Detener el observer en el body
@@ -194,7 +190,7 @@ const domObserver = new MutationObserver(() => {
 const searchObserver = new MutationObserver((mutationsList) => {
   const productContainer = document.querySelector("ul.x-base-grid")
 
-  console.log(productContainer)
+  // console.log(productContainer)
 
   if (productContainer) {
     if (productContainer.classList.contains("x-base-grid")) {

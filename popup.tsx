@@ -1,6 +1,6 @@
 import React from "react"
 
-import { useCheckboxStorage } from "~utils/useCheckboxStorage"
+import { useFilterSelection } from "~utils/useCheckboxStorage"
 import { useCurrentUrl } from "~utils/useCurrentUrl"
 
 import "./popup.css"
@@ -8,7 +8,7 @@ import "./popup.css"
 function IndexPopup() {
   const { data } = useCurrentUrl()
 
-  const { checkboxes, toggleCheckbox } = useCheckboxStorage()
+  const { checkboxes, toggleCheckbox } = useFilterSelection()
 
   return (
     <div className="popup">

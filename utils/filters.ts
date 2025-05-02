@@ -188,3 +188,16 @@ export const filterGlutenFreeProducts = async (
   unprocessedProducts.forEach((product) => processedProducts.add(product))
   return results.filter((product) => product !== null)
 }
+
+const filter = async (
+  products: {
+    link: string
+    ean: string
+  }[]
+) => {
+  const unprocessedProducts = products.filter(
+    (product) => !processedProducts.has(product)
+  )
+
+  // const appliedFilters = chrome.storage.local.get({ [STORAGE_KEY]: newState })
+}

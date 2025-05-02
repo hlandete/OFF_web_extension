@@ -4,9 +4,9 @@ type CheckboxGroupState = {
   [key: string]: boolean
 }
 
-const STORAGE_KEY = "checkboxGroup"
+const STORAGE_KEY = "activeFilters"
 
-export const useCheckboxStorage = () => {
+export const useFilterSelection = () => {
   const [checkboxes, setCheckboxes] = useState<CheckboxGroupState>({})
 
   // Recuperar el estado de los checkboxes desde chrome.storage.local al montar el componente
