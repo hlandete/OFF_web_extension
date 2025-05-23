@@ -6,14 +6,13 @@ import { filterProducts } from "~utils/filters"
 import { debounce } from "~utils/debounce"
 
 export const config: PlasmoCSConfig = {
-  matches: ["https://www.carrefour.es/*"],
+  matches: ["https://www.elcorteingles.es/*"],
   all_frames: true
 }
 
+console.log("Carrefour content script copy loaded")
 
-console.log("Carrefour Search")
-
-const searchLinkSelector = ".x-base-grid__item"
+const searchLinkSelector = "grid-item"
 const plpLinkSelector = ".product-card__parent"
 
 
@@ -26,7 +25,7 @@ const extractProductLinks = (linkSelector) => {
   )
     .map((html) => {
 
-      const anchor = html.querySelector('a')?.getAttribute('href')
+      const anchor = html.querySelector('.product_tile-description a')?.getAttribute('href')
 
 
       console.log({ html, link: anchor})
@@ -50,13 +49,14 @@ const scrapeEAN = async (url: string): Promise<string | null> => {
     const parser = new DOMParser()
     const doc = parser.parseFromString(html, "text/html")
 
-    const scriptTag = doc.querySelector<HTMLScriptElement>(
-      "script[type='application/ld+json']"
-    )
-    if (scriptTag) {
-      const jsonData = JSON.parse(scriptTag.innerText)
-      const ean = jsonData.gtin13 || null
-      console.log(ean + "   " + url)
+    const ean = await new Promise<string>((resolve) => {
+        setTimeout(() => {
+          const element = doc.querySelector('div.reference-container.pdp-reference span.hidden');
+          resolve(element ? element.textContent?.trim() ?? "" : "");
+        }, 1);
+      });
+    console.log(ean)
+    if (ean) {
       return ean
     }
     console.warn(url, "EAN no encontrado")
@@ -134,11 +134,11 @@ const extractAndProcessProductsDebounced = debounce(async (linkSelector) => {
 function initObservers() {
 
 const domObserver = new MutationObserver(() => {
-  const searchProductsContainer = document.querySelector("ul.x-base-grid")
+  const searchProductsContainer = document.querySelector(".js-grid-container")
   const plpProductsContainer = document.querySelector(".plp")
 
   if (searchProductsContainer) {
-    extractAndProcessProductsDebounced(searchLinkSelector)
+    extractAndProcessProductsDebounced('.'+searchLinkSelector)
     searchObserver.observe(searchProductsContainer, { childList: true, subtree: true  })
   }
 
@@ -147,16 +147,34 @@ const domObserver = new MutationObserver(() => {
     plpObserver.observe(plpProductsContainer, { childList: true })
   }
 
+  // // console.log(productContainer)
+  // if (productContainer) {
+  //   if (productContainer.classList.contains("x-base-grid")) {
+  //     domObserver.disconnect() // Detener el observer en el body
+  //     extractAndProcessProductsDebounced(searchLinkSelector)
+
+  //     searchObserver.observe(productContainer, { childList: true })
+  //     plpObserver.observe()
+  //   } else {
+  //     searchObserver.disconnect()
+
+  //     domObserver.observe(body, { childList: true, subtree: true })
+  //   }
+  // }
 })
 
 // Observer para monitorizar cambios en el DOM
 const searchObserver = new MutationObserver((mutationsList) => {
+
+  // console.log(productContainer)
+  // domObserver.disconnect();
+
   mutationsList.forEach((mutation) => {
     if (mutation.type === 'childList') {
       mutation.addedNodes.forEach((node) => {
         if (
           node instanceof HTMLElement &&
-          node.classList.contains('product-card-list__item') &&
+          node.classList.contains(searchLinkSelector) &&
           !node.hasAttribute('data-observed')
         ) {
 
@@ -165,7 +183,7 @@ const searchObserver = new MutationObserver((mutationsList) => {
 
           if (productContainer) {
             if (productContainer.classList.contains("x-base-grid")) {
-              extractAndProcessProductsDebounced(searchLinkSelector)
+              extractAndProcessProductsDebounced('.'+searchLinkSelector)
             } else {
               searchObserver.disconnect()
         
@@ -219,7 +237,6 @@ const plpObserver = new MutationObserver((mutationList) => {
 }
 
 initObservers()
-
 
 
 

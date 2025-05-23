@@ -6,60 +6,55 @@ import { filterProducts } from "~utils/filters"
 import { debounce } from "~utils/debounce"
 
 export const config: PlasmoCSConfig = {
-  matches: ["https://www.carrefour.es/*"],
+  matches: ["https://tienda.consum.es/*"],
   all_frames: true
 }
 
-
-console.log("Carrefour Search")
-
-const searchLinkSelector = ".x-base-grid__item"
-const plpLinkSelector = ".product-card__parent"
+console.log("Consum content script copy loaded")
+const searchLinkSelector =
+  "cmp-widget-product"
+const plpLinkSelector = "div.product-card__media a"
 
 
 // Función para extraer los enlaces de los productos
 const extractProductLinks = (linkSelector) => {
-
-
   const arrayProducts = Array.from(
-    document.querySelectorAll<HTMLElement>(linkSelector+':not([data-processed="true"])')
+    document.querySelectorAll<HTMLAnchorElement>(linkSelector)
   )
     .map((html) => {
-
-      const anchor = html.querySelector('a')?.getAttribute('href')
-
-
-      console.log({ html, link: anchor})
-      return { html, link: anchor}
-    })
+      const codeElement = html.closest("cmp-widget-product")?.querySelector(".product-info-name--code");
+    
+      // Extraer el número (por ejemplo: 7113756) con una RegExp
+      const codeMatch = codeElement?.textContent?.match(/\d+/);
+      const productCode = codeMatch ? codeMatch[0] : null;
+      return { html, link: "https://tienda.consum.es/es/"+productCode}
+    }
+    )
 
   // console.log("Cantidad " + arrayProducts.length)
   return arrayProducts
 }
-// const processedLinks: Map<string, string | null> = new Map() // Conjunto para almacenar enlaces ya procesados
+
 const processedLinks: Array<{
   html: HTMLElement;
   link: string;
 }> = []
+
 // Función para hacer scraping de la página del producto y obtener el EAN
 const scrapeEAN = async (url: string): Promise<string | null> => {
   try {
     const response = await fetch(url)
     const html = await response.text()
 
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(html, "text/html")
+    const match = html.match(/EAN[^0-9]*([\d]{13})/);
 
-    const scriptTag = doc.querySelector<HTMLScriptElement>(
-      "script[type='application/ld+json']"
-    )
-    if (scriptTag) {
-      const jsonData = JSON.parse(scriptTag.innerText)
-      const ean = jsonData.gtin13 || null
-      console.log(ean + "   " + url)
-      return ean
-    }
-    console.warn(url, "EAN no encontrado")
+if (match) {
+  const ean = match[1];
+  console.log("EAN encontrado:", ean);
+  return ean;
+} else {
+  console.log("No se encontró el EAN");
+}
     return null
   } catch (error) {
     console.error("Error al obtener el EAN del producto:", error)
@@ -72,69 +67,85 @@ const processProductLinks = async (products: {
   html: HTMLElement;
   link: string;
 }[]) => {
+  console.log(products)
+
 
   if (products.length > 0) {
     // console.log("Procesando nuevos enlaces:", unprocessedLinks)
 
     const results = await Promise.all(
       products.map(async (product) => {
+        console.log(product)
         const ean = await scrapeEAN(product.link)
         processedLinks.push(product) // Guardamos el EAN obtenido
         markProductAsProcessed(product.html) // Marca el producto en el DOM
-        return { ...product, ean }
+        // return {  ean, ...product }
       })
     )
 
-    const filteredTest = await filterProducts(results)
+    // const filteredTest = await filterProducts(results)
     // // console.log(results)
     // console.log("Filtrados")
-     console.log("Resultados del procesamiento:", filteredTest)
-    filteredTest.forEach((product) =>
-      markProductAsFiltered(product.html, product.condition)
-    )
+    // console.log("Resultados del procesamiento:", filteredTest)
+    // filteredTest.forEach((product) =>
+    //   markProductAsFiltered(product.link, product.condition, linkSelector)
+    // )
   }
 
   // console.log(processedLinks)
 }
 
 // Función para aplicar estilo a los productos procesados
-const markProductAsProcessed = (html) => {
-  html.setAttribute("data-processed", "true");
-  html.style.border = "2px solid orange"
-  html.style.backgroundColor = "#f0dec0"
-  html.style.opacity = "0.7"
-    
+const markProductAsProcessed = (product: HTMLElement) => {
+console.log(product)
+  if (product) {
+    const container = product
+    if (container) {
+      container.style.border = "2px solid orange"
+      container.style.backgroundColor = "#f0dec0"
+      container.style.opacity = "0.7"
+    }
+  }
 }
 
 const markProductAsFiltered = (
-  html: HTMLElement,
+  link: string,
   condition: boolean,
+  linkSelector: string
 ) => {
-      if (condition) {
-        html.style.border = "2px solid green"
-        html.style.backgroundColor = "#c0f0d0"
-        html.style.opacity = "0.7"
-      } else {
-        html.style.border = "2px solid red"
-        html.style.backgroundColor = "#f0c0c0"
-        html.style.opacity = "0.7"
-      }
+  const productElement = Array.from(
+    document.querySelectorAll<HTMLAnchorElement>(linkSelector)
+  ).find((a) => a.href === link)
 
-  
+  if (productElement) {
+    const container = productElement.closest("li") as HTMLElement
+    if (container) {
+      if (condition) {
+        container.style.border = "2px solid green"
+        container.style.backgroundColor = "#c0f0d0"
+        container.style.opacity = "0.7"
+      } else {
+        container.style.border = "2px solid red"
+        container.style.backgroundColor = "#f0c0c0"
+        container.style.opacity = "0.7"
+      }
+    }
+  }
 }
 
 // Función debounced para extraer y procesar productos
 const extractAndProcessProductsDebounced = debounce(async (linkSelector) => {
   const currentProductLinks = extractProductLinks(linkSelector)
-  // console.log(currentProductLinks)
+
   await processProductLinks(currentProductLinks)
 }, 500)
 
 
 function initObservers() {
 
+  const searchProductsContainerSelector = "cmp-products-grid"
 const domObserver = new MutationObserver(() => {
-  const searchProductsContainer = document.querySelector("ul.x-base-grid")
+  const searchProductsContainer = document.querySelector(searchProductsContainerSelector)
   const plpProductsContainer = document.querySelector(".plp")
 
   if (searchProductsContainer) {
@@ -151,57 +162,45 @@ const domObserver = new MutationObserver(() => {
 
 // Observer para monitorizar cambios en el DOM
 const searchObserver = new MutationObserver((mutationsList) => {
+  console.log(mutationsList);
+  domObserver.disconnect();
   mutationsList.forEach((mutation) => {
     if (mutation.type === 'childList') {
       mutation.addedNodes.forEach((node) => {
         if (
           node instanceof HTMLElement &&
-          node.classList.contains('product-card-list__item') &&
+          node.tagName.toLowerCase() === 'cmp-widget-product' &&
           !node.hasAttribute('data-observed')
         ) {
 
           node.setAttribute('data-observed', 'true');
-          const productContainer = document.querySelector("ul.x-base-grid")
+          const productContainer = document.querySelector(".grid__catalog")
 
+        
           if (productContainer) {
-            if (productContainer.classList.contains("x-base-grid")) {
               extractAndProcessProductsDebounced(searchLinkSelector)
-            } else {
+          }
+             else {
               searchObserver.disconnect()
         
               domObserver.observe(body, { childList: true, subtree: true })
             }
-          }
         }
       });
     }
   });
+
+ 
   
 })
 
 const plpObserver = new MutationObserver((mutationList) => {
+  const productContainer = document.querySelector(".plp")
 
-  mutationList.forEach((mutation) => {
-    if (mutation.type === 'childList') {
-      mutation.addedNodes.forEach((node) => {
-        if (
-          node instanceof HTMLElement &&
-          node.classList.contains('product-card__parent') &&
-          !node.hasAttribute('data-observed')
-        ) {
-
-          node.setAttribute('data-observed', 'true');
-          const productContainer = document.querySelector(".plp")
-
-          if (productContainer) {
-            plpObserver.disconnect() // Detener el observer en el body
-            extractAndProcessProductsDebounced(plpLinkSelector)
-          }
-        }
-      });
-    }
-  });
-
+  if (productContainer) {
+    plpObserver.disconnect() // Detener el observer en el body
+    extractAndProcessProductsDebounced(plpLinkSelector)
+  }
 })
 
 
@@ -219,7 +218,4 @@ const plpObserver = new MutationObserver((mutationList) => {
 }
 
 initObservers()
-
-
-
 

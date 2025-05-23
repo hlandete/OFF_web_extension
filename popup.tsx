@@ -1,12 +1,11 @@
 import React from "react"
 
-import { useFilterSelection } from "~utils/useCheckboxStorage"
-import { useCurrentUrl } from "~utils/useCurrentUrl"
+import { useFilterSelection } from "~hooks/useCheckboxStorage"
+import { useCurrentUrl } from "~hooks/useCurrentUrl"
 
 import "./popup.css"
 
 function IndexPopup() {
-  const { data } = useCurrentUrl()
 
   const { checkboxes, toggleCheckbox } = useFilterSelection()
 
@@ -53,9 +52,9 @@ function IndexPopup() {
         <label className="checkbox-item">
           <input
             type="checkbox"
-            name="no_soja"
-            checked={!!checkboxes["no_soja"]}
-            onChange={() => toggleCheckbox("no_soja")}
+            name="no_soy"
+            checked={!!checkboxes["no_soy"]}
+            onChange={() => toggleCheckbox("no_soy")}
           />
           Sin soja
         </label>{" "}

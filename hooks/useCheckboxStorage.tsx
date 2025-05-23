@@ -24,6 +24,7 @@ export const useFilterSelection = () => {
     setCheckboxes(newState)
     // Guardar el nuevo estado en chrome.storage.local
     chrome.storage.local.set({ [STORAGE_KEY]: newState })
+    chrome.tabs.reload()
   }
 
   // Función para alternar el estado de un checkbox
